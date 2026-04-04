@@ -104,14 +104,14 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     if (task.remainingTimeMillis <= 0) {
                         // Reset if it reached zero
-                        startTimerService(task.name)
+                        startTimerService(task.name, task.initialTimeMillis)
                         task.copy(
                             isRunning = true,
                             remainingTimeMillis = task.initialTimeMillis,
                             lastStartTime = now
                         )
                     } else {
-                        startTimerService(task.name)
+                        startTimerService(task.name, task.remainingTimeMillis)
                         task.copy(
                             isRunning = true,
                             lastStartTime = now
@@ -136,10 +136,30 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun startTimerService(taskName: String) {
+    fun onEnterBackground() {
+        val runningTask = tasks.value.find { it.isRunning }
+        if (runningTask != null) {
+            val intent = Intent(getApplication(), TimerService::class.java).apply {
+                action = "UPDATE_VISIBILITY"
+                putExtra("IS_VISIBLE", false)
+            }
+            getApplication<Application>().startService(intent)
+        }
+    }
+
+    fun onEnterForeground() {
+        val intent = Intent(getApplication(), TimerService::class.java).apply {
+            action = "UPDATE_VISIBILITY"
+            putExtra("IS_VISIBLE", true)
+        }
+        getApplication<Application>().startService(intent)
+    }
+
+    private fun startTimerService(taskName: String, remainingTime: Long) {
         val intent = Intent(getApplication(), TimerService::class.java).apply {
             action = "START"
             putExtra("TASK_NAME", taskName)
+            putExtra("REMAINING_TIME", remainingTime)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getApplication<Application>().startForegroundService(intent)

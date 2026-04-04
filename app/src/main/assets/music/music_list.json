@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "title": "Deep Focus",
+    "artist": "Nature",
+    "fileName": "deep_focus.mp3"
+  },
+  {
+    "id": 2,
+    "title": "Ambient Study",
+    "artist": "Lo-Fi",
+    "fileName": "ambient_study.mp3"
+  },
+  {
+    "id": 3,
+    "title": "Binaural Beats",
+    "artist": "Zen",
+    "fileName": "binaural_beats.mp3"
+  },
+  {
+    "id": 4,
+    "title": "Rainy Night",
+    "artist": "Atmosphere",
+    "fileName": "rainy_night.mp3"
+  },
+  {
+    "id": 5,
+    "title": "Ocean Waves",
+    "artist": "Nature",
+    "fileName": "ocean_waves.mp3"
+  },
+  {
+    "id": 6,
+    "title": "Library Silence",
+    "artist": "Study",
+    "fileName": "library_silence.mp3"
+  },
+  {
+    "id": 7,
+    "title": "Alpha Waves",
+    "artist": "Neuro",
+    "fileName": "alpha_waves.mp3"
+  },
+  {
+    "id": 8,
+    "title": "Soft Piano",
+    "artist": "Relax",
+    "fileName": "soft_piano.mp3"
+  },
+  {
+    "id": 9,
+    "title": "White Noise",
+    "artist": "Focus",
+    "fileName": "white_noise.mp3"
+  },
+  {
+    "id": 10,
+    "title": "Morning Dew",
+    "artist": "Calm",
+    "fileName": "morning_dew.mp3"
+  }
+]

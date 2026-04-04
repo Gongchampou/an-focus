@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -18,6 +19,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -35,6 +39,20 @@ class MainActivity : ComponentActivity() {
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsState()
             MyApplicationTheme(darkTheme = isDarkMode) {
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        when (event) {
+                            Lifecycle.Event.ON_STOP -> viewModel.onEnterBackground()
+                            Lifecycle.Event.ON_START -> viewModel.onEnterForeground()
+                            else -> {}
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
+                    }
+                }
                 MainScreen(viewModel)
             }
         }
