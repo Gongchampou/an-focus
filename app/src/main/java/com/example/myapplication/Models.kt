@@ -28,7 +28,8 @@ data class Track(
     val id: Int,
     val title: String,
     val artist: String,
-    val url: String = ""
+    val url: String = "",
+    val fileName: String = ""
 )
 
 data class RelaxTrick(

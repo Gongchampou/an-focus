@@ -34,7 +34,7 @@ interface TodoDao {
     suspend fun deleteTodo(todo: Todo)
 }
 
-@Database(entities = [Task::class, Todo::class], version = 3)
+@Database(entities = [Task::class, Todo::class], version = 4)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun todoDao(): TodoDao

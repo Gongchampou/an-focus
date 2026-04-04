@@ -26,14 +26,17 @@ class TimerService : Service() {
             initialRemainingMillis = intent.getLongExtra("REMAINING_TIME", 0L)
             startTimeMillis = System.currentTimeMillis()
             
-            val isVisible = intent.getBooleanExtra("IS_VISIBLE", true)
+            // Always call startForeground when action is START to avoid ForegroundServiceDidNotStartInTimeException
+            startForegroundService(taskName)
+            
+            val isVisible = intent.getBooleanExtra("IS_VISIBLE", false)
             if (!isVisible) {
-                startForegroundService(taskName)
                 startTimerUpdates()
             } else {
-                // If it was already running, stop updates if app becomes visible
-                stopTimerUpdates()
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                // If app is visible, we might not want to show the notification, 
+                // but we ALREADY called startForeground to satisfy the OS.
+                // We can stop it now if we really want, but it's safer to just let it run.
+                startTimerUpdates()
             }
         } else if (action == "UPDATE_VISIBILITY") {
             val isVisible = intent.getBooleanExtra("IS_VISIBLE", true)
@@ -115,10 +118,16 @@ class TimerService : Service() {
 
         val notification = createNotification(taskName, formatDigitalClock(initialRemainingMillis))
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else {
-            startForeground(1, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(1, notification)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Even if startForeground fails, we should try to stopSelf to avoid ANR/Crash
+            stopSelf()
         }
     }
 

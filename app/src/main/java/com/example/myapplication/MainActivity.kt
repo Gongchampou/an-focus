@@ -65,6 +65,7 @@ sealed class Screen(val route: String, val icon: ImageVector, val label: String)
     object Music : Screen("music", Icons.Default.MusicNote, "Focus")
     object Relax : Screen("relax", Icons.Default.SelfImprovement, "Relax")
     object Settings : Screen("settings", Icons.Default.Settings, "Settings")
+    object DownloadedMusic : Screen("downloaded_music", Icons.Default.Download, "Downloaded")
 }
 
 @Composable
@@ -85,7 +86,10 @@ fun MainScreen(viewModel: TaskViewModel) {
             composable(Screen.Timer.route) { TimerScreen(viewModel) }
             composable(Screen.Music.route) { MusicScreen() }
             composable(Screen.Relax.route) { RelaxScreen() }
-            composable(Screen.Settings.route) { SettingsScreen(viewModel) }
+            composable(Screen.Settings.route) { SettingsScreen(viewModel, navController) }
+            composable(Screen.DownloadedMusic.route) { 
+                DownloadedMusicScreen(onBack = { navController.popBackStack() }) 
+            }
         }
     }
 }
