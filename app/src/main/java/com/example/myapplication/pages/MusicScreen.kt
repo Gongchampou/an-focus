@@ -1,6 +1,7 @@
 package com.example.myapplication.pages
 
 import android.content.ComponentName
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -102,7 +103,7 @@ fun MusicScreen(navController: NavController) {
     }
     var mediaController by remember { mutableStateOf<MediaController?>(null) }
 
-    // This part handles the lifecycle. We've removed the auto-refresh on resume 
+    // This part handles the lifecycle. We've removed the auto-refresh on resume
     // to keep the UI consistent and prevent flickering.
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, _ -> }
@@ -246,7 +247,9 @@ fun MusicScreen(navController: NavController) {
 
 
 
+    // --- UI DESIGN SECTION (This is where you change how things LOOK) ---
     // -----------------------------------------------------------------------------------------
+
     // --- UI DESIGN SECTION (This is where you change how things LOOK) ---
     // -----------------------------------------------------------------------------------------
     
@@ -269,14 +272,15 @@ fun MusicScreen(navController: NavController) {
         
         Spacer(modifier = Modifier.height(16.dp)) // Adds a small gap
         
-        // --- THE NOW PLAYING CARD (THE PURPLE BOX) ---
+        // --- THE NOW PLAYING CARD (THE TRANSLUCENT BOX) ---
         Card(
-            modifier = Modifier.fillMaxWidth().height(150.dp), 
+            modifier = Modifier.fillMaxWidth().height(180.dp), // Increased height for trackline
             shape = RoundedCornerShape(20.dp), 
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF5856D6)) 
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // CATEGORY BACKGROUND: Shows an SVG based on the current song's category
+                // CATEGORY BACKGROUND
                 currentTrack?.category?.let { cat ->
                     categoryBackgrounds[cat]?.let { svg ->
                         val painter = rememberAsyncImagePainter(
@@ -288,44 +292,57 @@ fun MusicScreen(navController: NavController) {
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
-                            alpha = 0.4f // Makes the SVG subtle so text is readable
+                            alpha = 0.6f
                         )
                     }
                 }
 
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // Displays the title of the song.
-                    Text("Now Playing: ${currentTrack?.title ?: "Select a track"}", color = Color.White, fontWeight = FontWeight.Bold)
-                    
-                    // --- PLAYER CONTROLS (Skip, Play/Pause, Next) ---
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Now Playing: ${currentTrack?.title ?: "Select a track"}", 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (isPlaying) {
+                            Spacer(Modifier.width(8.dp))
+                            PlayingAnimation()
+                        }
+                    }
+
+                    // --- PLAYER CONTROLS (Above tracking now) ---
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
+                        IconButton(onClick = { mediaController?.seekToPreviousMediaItem() }) { 
+                            Icon(Icons.Default.SkipPrevious, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
                         
-                        // SKIP PREVIOUS BUTTON
-                        IconButton(onClick = {
-                            mediaController?.seekToPreviousMediaItem()
-                        }) { Icon(Icons.Default.SkipPrevious, null, tint = Color.White) }
-                        
-                        // PLAY / PAUSE BUTTON
                         IconButton(onClick = { 
                             val controller = mediaController ?: return@IconButton
                             if (controller.playWhenReady) controller.pause() else controller.play()
-                        }, modifier = Modifier.size(64.dp)) {
+                        }, modifier = Modifier.size(56.dp)) {
                             Icon(
                                 if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, 
                                 null, 
-                                tint = Color.White, 
-                                modifier = Modifier.size(48.dp) 
+                                tint = MaterialTheme.colorScheme.primary, 
+                                modifier = Modifier.size(40.dp) 
                             ) 
                         }
                         
-                        // SKIP NEXT BUTTON
-                        IconButton(onClick = {
-                            mediaController?.seekToNextMediaItem()
-                        }) { Icon(Icons.Default.SkipNext, null, tint = Color.White) }
+                        IconButton(onClick = { mediaController?.seekToNextMediaItem() }) { 
+                            Icon(Icons.Default.SkipNext, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                    }
+
+                    // --- THE TRACKLINE (SLIDER) ---
+                    if (currentTrack != null) {
+                        PlaybackProgress(mediaController, isPlaying)
                     }
                 }
             }
@@ -386,6 +403,86 @@ fun MusicScreen(navController: NavController) {
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * A small animated visualizer that shows when music is playing.
+ */
+@Composable
+fun PlayingAnimation() {
+    val infiniteTransition = rememberInfiniteTransition(label = "bars")
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.height(16.dp)
+    ) {
+        listOf(0.4f, 0.8f, 0.5f).forEach { initialHeight ->
+            val height by infiniteTransition.animateFloat(
+                initialValue = initialHeight,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(500, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "barHeight"
+            )
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight(height)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(1.dp))
+            )
+        }
+    }
+}
+
+/**
+ * A self-contained progress bar to prevent flickering on the main screen.
+ */
+@Composable
+fun PlaybackProgress(mediaController: MediaController?, isPlaying: Boolean) {
+    var currentPosition by remember { mutableStateOf(0L) }
+    var totalDuration by remember { mutableStateOf(0L) }
+
+    fun formatTime(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return "%d:%02d".format(minutes, seconds)
+    }
+
+    LaunchedEffect(mediaController, isPlaying) {
+        val controller = mediaController ?: return@LaunchedEffect
+        while (isPlaying) {
+            currentPosition = controller.currentPosition
+            totalDuration = controller.duration.coerceAtLeast(0L)
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Slider(
+            value = if (totalDuration > 0) currentPosition.toFloat() / totalDuration.toFloat() else 0f,
+            onValueChange = { ratio ->
+                val newPos = (ratio * totalDuration).toLong()
+                currentPosition = newPos
+                mediaController?.seekTo(newPos)
+            },
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+            ),
+            modifier = Modifier.height(20.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(formatTime(currentPosition), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(formatTime(totalDuration), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import android.content.ComponentName
+import androidx.media3.common.Player
 import java.io.File
 import com.example.myapplication.PlaybackService
 import com.example.myapplication.Track
@@ -42,18 +43,15 @@ fun DownloadedMusicScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope() // Allows us to do work in the background
     
     // --- DATA HOLDERS ---
-    // This list will hold ONLY the tracks that are actually downloaded
-    var downloadedTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    
-    // --- MUSIC ENGINE CONNECTION ---
-    // We connect to the music player so that if you delete a song while it's playing, 
-    // the app can stop the music properly.
     val controllerFuture = remember {
         val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         MediaController.Builder(context, sessionToken).buildAsync()
     }
     var mediaController by remember { mutableStateOf<MediaController?>(null) }
+
+    var allTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
+    var downloadedTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
 
     // Connects the screen to the background player "engine"
     LaunchedEffect(controllerFuture) {
@@ -61,6 +59,7 @@ fun DownloadedMusicScreen(onBack: () -> Unit) {
             mediaController = controllerFuture.get()
         }, MoreExecutors.directExecutor())
     }
+
 
     // Safely disconnects when you leave the page to save battery
     DisposableEffect(Unit) {
@@ -89,14 +88,14 @@ fun DownloadedMusicScreen(onBack: () -> Unit) {
                 // 1. Open the master list of all possible songs
                 val jsonString = context.assets.open("music_list.json").bufferedReader().use { it.readText() }
                 val type = object : TypeToken<List<Track>>() {}.type
-                val allTracks: List<Track> = Gson().fromJson(jsonString, type)
+                val allTracksList: List<Track> = Gson().fromJson(jsonString, type)
                 
                 // 2. Find the folder where music is stored
                 val musicDir = File(context.filesDir, "music")
                 if (!musicDir.exists()) musicDir.mkdirs()
 
                 // 3. CLEANUP: Delete any files that are broken (0 bytes) or shouldn't be there
-                val validFileNames = allTracks.map { getFileName(it) }.toSet()
+                val validFileNames = allTracksList.map { getFileName(it) }.toSet()
                 musicDir.listFiles()?.forEach { file ->
                     if (!validFileNames.contains(file.name) || file.length() <= 0L) {
                         file.delete()
@@ -104,7 +103,7 @@ fun DownloadedMusicScreen(onBack: () -> Unit) {
                 }
 
                 // 4. FILTER: Find which tracks are actually on the phone
-                val filtered = allTracks.filter { track ->
+                val filtered = allTracksList.filter { track ->
                     if (track.url.isBlank()) true // Local assets always count
                     else {
                         val file = File(musicDir, getFileName(track))
@@ -114,6 +113,7 @@ fun DownloadedMusicScreen(onBack: () -> Unit) {
 
                 // 5. UPDATE UI: Switch back to the main thread to update the screen
                 withContext(Dispatchers.Main) {
+                    allTracks = allTracksList
                     downloadedTracks = filtered
                     isLoading = false
                 }
@@ -140,6 +140,7 @@ fun DownloadedMusicScreen(onBack: () -> Unit) {
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
+
 
             if (isLoading) {
                 // Show a loading spinner while checking files

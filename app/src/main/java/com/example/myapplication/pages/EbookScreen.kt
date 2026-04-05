@@ -1,6 +1,5 @@
 package com.example.myapplication.pages
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,11 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.ChromeReaderMode
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -30,7 +25,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
@@ -38,20 +32,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.text.HtmlCompat
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.decode.SvgDecoder
 import com.example.myapplication.Ebook
-import com.example.myapplication.R
-import androidx.compose.ui.graphics.toArgb
-import android.graphics.text.LineBreaker
-import android.os.Build
-import android.widget.TextView
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -178,7 +165,9 @@ fun BookItem(book: Ebook, onClick: () -> Unit) {
 
     // The clickable card container for a single book
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }, // Makes the whole card clickable
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }, // Makes the whole card clickable
         shape = RoundedCornerShape(12.dp), // CHANGE: Adjust card corner roundness
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // CHANGE: Increase for more shadow
     ) {
@@ -246,14 +235,123 @@ fun BookItem(book: Ebook, onClick: () -> Unit) {
 }
 
 /**
+ * Reads text from a .docx file by extracting content from word/document.xml.
+ * Enhanced to support basic bold and italic formatting.
+ */
+private fun readDocxText(inputStream: java.io.InputStream): String {
+    val zipInputStream = java.util.zip.ZipInputStream(inputStream)
+    val sb = StringBuilder()
+    try {
+        var entry = zipInputStream.nextEntry
+        while (entry != null) {
+            if (entry.name == "word/document.xml") {
+                val xmlContent = zipInputStream.bufferedReader().readText()
+                // Match paragraphs
+                val pMatcher = java.util.regex.Pattern.compile("<w:p[^>]*>(.*?)</w:p>", java.util.regex.Pattern.DOTALL).matcher(xmlContent)
+                while (pMatcher.find()) {
+                    val pContent = pMatcher.group(1) ?: ""
+
+                    // Match runs within paragraph
+                    val rMatcher = java.util.regex.Pattern.compile("<w:r[^>]*>(.*?)</w:r>", java.util.regex.Pattern.DOTALL).matcher(pContent)
+                    while (rMatcher.find()) {
+                        val rContent = rMatcher.group(1) ?: ""
+                        
+                        // Check for bold and italic tags in run properties
+                        val isBold = rContent.contains("<w:b/>") || rContent.contains("<w:b ")
+                        val isItalic = rContent.contains("<w:i/>") || rContent.contains("<w:i ")
+
+                        // Extract text from <w:t> tags
+                        val tMatcher = java.util.regex.Pattern.compile("<w:t[^>]*>(.*?)</w:t>").matcher(rContent)
+                        while (tMatcher.find()) {
+                            var text = tMatcher.group(1) ?: ""
+                            if (isBold) text = "<b>$text</b>"
+                            if (isItalic) text = "<i>$text</i>"
+                            sb.append(text)
+                        }
+                    }
+                    sb.append("\n")
+                }
+            }
+            zipInputStream.closeEntry()
+            entry = zipInputStream.nextEntry
+        }
+    } catch (e: Exception) {
+        return "Error parsing .docx: ${e.message}"
+    } finally {
+        zipInputStream.close()
+    }
+    return sb.toString()
+}
+
+/**
+ * Cleans Word-exported HTML to be compatible with Android's AnnotatedString.fromHtml.
+ * It preserves colors, bold, and italics.
+ */
+private fun cleanWordHtml(html: String): String {
+    // 1. Extract content within <body> tags
+    val bodyMatcher = java.util.regex.Pattern.compile("<body[^>]*>(.*?)</body>", java.util.regex.Pattern.DOTALL).matcher(html)
+    var content = if (bodyMatcher.find()) bodyMatcher.group(1) else html
+
+    // 2. Map specific Word classes to standard HTML tags for AnnotatedString
+    content = content
+        .replace("class=speaker", "style=\"font-weight:bold\"") // Speakers -> Bold
+        .replace("class=headerh1", "style=\"font-size:24px; font-weight:bold\"") // Headers
+        .replace("class=instruction", "style=\"font-style:italic; color:#666666\"") // Instructions -> Italics + Gray
+        .replace("class=cross", "style=\"color:#FF0000; font-weight:bold\"") // Crosses -> Red Bold
+        
+    // Ensure styles that look like font-weight:bold are wrapped in <b> for better compatibility
+    content = content.replace("style=\"[^\"]*font-weight:bold[^\"]*\"", "<b>")
+        .replace("style='[^\"]*font-weight:bold[^\"]*'", "<b>")
+
+    // 3. Convert Word's style='color:#RRGGBB' to <font color='#RRGGBB'>
+    val colorRegex = "style='[^']*color:(#[0-9a-fA-F]{6})[^']*'".toRegex()
+    content = content.replace(colorRegex) { matchResult ->
+        "color=\"${matchResult.groupValues[1]}\""
+    }
+
+    // 4. Remove MS Word specific XML namespaces and tags
+    content = content
+        .replace("<o:p>.*?</o:p>".toRegex(), "")
+        .replace("</?span[^>]*>".toRegex(), "")
+        .replace("</?o:[^>]*>".toRegex(), "")
+        .replace("<!\\[if !supportEmptyParas\\]>.*?<!\\[endif\\]>".toRegex(), "")
+        .replace("&nbsp;", " ")
+
+    return content
+}
+
+/**
  * EbookReader: A dedicated full-screen component for reading book content.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EbookReader(book: Ebook, fontSize: Float, onBack: () -> Unit) {
+    val context = LocalContext.current
+    // State to hold the actual content (resolved if it was a path)
+    var displayContent by remember(book.content) { 
+        mutableStateOf(if (book.content.endsWith(".docx") || book.content.contains("/")) "" else book.content)
+    }
+
+    // Effect to load content from assets if the content field is a path
+    LaunchedEffect(book.content) {
+        if (book.content.endsWith(".docx") || book.content.endsWith(".htm") || book.content.contains("/")) {
+            try {
+                val path = book.content
+                context.assets.open(path).use { stream ->
+                    displayContent = when {
+                        path.endsWith(".docx") -> readDocxText(stream)
+                        path.endsWith(".htm") -> cleanWordHtml(stream.bufferedReader().use { it.readText() })
+                        else -> stream.bufferedReader().use { it.readText() }
+                    }
+                }
+            } catch (e: Exception) {
+                displayContent = "Error loading book content: ${e.message}"
+            }
+        }
+    }
+
     // State to toggle between normal view and "Eye-Care" (Sepia) view
     var isReadingMode by remember { mutableStateOf(false) }
-    
     // CHANGE: Edit these colors to customize the "Eye-Care" mode experience
     val backgroundColor = if (isReadingMode) Color(0xFFF4ECD8) else MaterialTheme.colorScheme.surface
     val textColor = if (isReadingMode) Color(0xFF5B4636) else MaterialTheme.colorScheme.onSurface
@@ -266,110 +364,90 @@ fun EbookReader(book: Ebook, fontSize: Float, onBack: () -> Unit) {
     ) {
         Scaffold(
             topBar = {
-                // Header layout for Title, Back and Read Mode buttons (Fixed at top)
-                Column(
+                // Header layout for Back and Read Mode buttons
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 1.dp) // 1px (approx) top padding
-                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .fillMaxWidth() // Header width
+                        .windowInsetsPadding(WindowInsets.statusBars) // Space for status bar icons
+                        .padding(horizontal = 8.dp) // Side padding for buttons
                 ) {
-                    Box(
+                    // The button used to close the reader
+                    IconButton(
+                        onClick = onBack, 
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
+                            .size(38.dp)
+                            .align(Alignment.CenterStart) // Button area size
                     ) {
-                        // The button used to close the reader
-                        IconButton(
-                            onClick = onBack, 
-                            modifier = Modifier.size(38.dp).align(Alignment.CenterStart)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Close Reader", 
-                                modifier = Modifier.size(30.dp),
-                                tint = textColor
-                            )
-                        }
-
-                        // FIXED TITLE - Now scales according to the selected font size
-                        Text(
-                            text = book.title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontSize = (fontSize * 1.2f).sp // Scales with reading font (20% larger)
-                            ),
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            color = textColor,
-                            modifier = Modifier.align(Alignment.Center).padding(horizontal = 48.dp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack, // Standard back arrow
+                            contentDescription = "Close Reader", 
+                            modifier = Modifier.size(30.dp), // CHANGE: Adjust back button icon size
+                            tint = textColor // Uses dynamic color so it remains visible in all modes
                         )
-
-                        // The button used to toggle Eye-Care mode
-                        IconButton(
-                            onClick = { isReadingMode = !isReadingMode },
-                            modifier = Modifier.size(38.dp).align(Alignment.CenterEnd)
-                        ) {
-                            Icon(
-                                imageVector = if (isReadingMode) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = "Toggle Reading Mode",
-                                modifier = Modifier.size(30.dp),
-                                tint = if (isReadingMode) Color(0xFFE67E22) else MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
 
-                    // FIXED AUTHOR
-                    Text(
-                        text = " ${book.author}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = authorColor,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
-                    )
-                    
-                    HorizontalDivider(color = authorColor.copy(alpha = 0.3f))
+                    // The button used to toggle Eye-Care (Sepia) mode
+                    IconButton(
+                        onClick = { isReadingMode = !isReadingMode }, // Swaps state on click
+                        modifier = Modifier
+                            .size(38.dp)
+                            .align(Alignment.CenterEnd) // Positioned at top right
+                    ) {
+                        Icon(
+                            imageVector = if (isReadingMode) Icons.Default.VisibilityOff else Icons.Default.Visibility, // Eye icon
+                            contentDescription = "Toggle Reading Mode",
+                            modifier = Modifier.size(30.dp), // CHANGE: Adjust eye icon size
+                            tint = if (isReadingMode) Color(0xFFE67E22) else MaterialTheme.colorScheme.primary // CHANGE: Icon color
+                        )
+                    }
                 }
             },
-            containerColor = backgroundColor
+            containerColor = backgroundColor // Changes the background of the entire reader screen
         ) { padding ->
             // Container for the book text, makes it scrollable
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 24.dp, vertical = 4.dp)
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxSize() // Fills screen
+                    .padding(padding) // Avoids overlapping top bar
+                    .padding(horizontal = 24.dp, vertical = 4.dp) // CHANGE: Adjust side margins for reading
+                    .verticalScroll(rememberScrollState()) // Enables up/down scrolling
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
+                // Displays the Book Title at the top of the page
+                Text(
+                    text = book.title, 
+                    style = MaterialTheme.typography.headlineMedium, // Large font style
+                    fontWeight = FontWeight.Bold, // Bold text
+                    textAlign = TextAlign.Center, // Centered title
+                    color = textColor, // Dynamic color based on Read Mode
+                    modifier = Modifier.fillMaxWidth() // Center within width
+                )
+                // Displays the Author name
+                Text(
+                    text = "by ${book.author}", 
+                    style = MaterialTheme.typography.bodyLarge, 
+                    color = authorColor, // Dynamic color (brownish in sepia mode)
+                    textAlign = TextAlign.Center, // Centered
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp) // Space below author
+                )
+                
+                // Visual horizontal line separator
+                HorizontalDivider(color = authorColor.copy(alpha = 0.3f)) 
+                Spacer(modifier = Modifier.height(24.dp)) // Vertical gap after line
                 
                 // Main reading content text
-                AndroidView(
-                    modifier = Modifier.fillMaxWidth(),
-                    factory = { context ->
-                        TextView(context).apply {
-                            // Basic setup for readability
-                            textSize = fontSize
-                            setTextColor(textColor.toArgb())
-                            setTextIsSelectable(true) // Allows users to copy text
-                            
-                            // Justify the text for a professional book look (Android 10.0+)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                justificationMode = LineBreaker.JUSTIFICATION_MODE_INTER_WORD
-                            }
-                        }
+                Text(
+                    // Converts HTML tags (like <b>) and replaces line breaks with HTML breaks
+                    text = if (book.content.endsWith(".htm")) {
+                        AnnotatedString.fromHtml(displayContent)
+                    } else {
+                        AnnotatedString.fromHtml(displayContent.replace("\n", "<br>"))
                     },
-                    update = { textView ->
-                        // These update whenever fontSize or textColor change
-                        textView.textSize = fontSize
-                        textView.setTextColor(textColor.toArgb())
-                        
-                        // Parse and set the HTML content
-                        textView.text = HtmlCompat.fromHtml(
-                            book.content.replace("\n", "<br>"),
-                            HtmlCompat.FROM_HTML_MODE_LEGACY
-                        )
-                    }
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize.sp), // CHANGE: Font size now controlled by settings
+                    lineHeight = (fontSize * 1.5).sp, // CHANGE: Proportional line height for readability
+                    textAlign = TextAlign.Justify, // Aligns text to both sides for a clean look
+                    color = textColor // Dynamic color for comfortable reading
                 )
                 
                 // Extra space at the very bottom so the last lines aren't cut off by screen edges
