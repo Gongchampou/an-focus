@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="read-images/images1.png" width="120" height="150" />
+  <img src="read-images/images1.png" width="320" height="450" />
   <img src="read-images/images2.png" width="80" height="120" />
   <img src="read-images/images3.png" width="80" height="120" />
   <img src="read-images/images4.png" width="80" height="120" />
