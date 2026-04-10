@@ -1,11 +1,11 @@
 <div align="center">
   <a href="read-images/images1.png"><img src="read-images/images1.png" width="280px" height="507px" /></a>
-  <a href="read-images/images2.png"><img src="read-images/images2.png" width="80" height="120" /></a>
-  <a href="read-images/images3.png"><img src="read-images/images3.png" width="80" height="120" /></a>
-  <a href="read-images/images4.png"><img src="read-images/images4.png" width="80" height="120" /></a>
-  <a href="read-images/images5.png"><img src="read-images/images5.png" width="80" height="120" /></a>
-  <a href="read-images/images6.png"><img src="read-images/images6.png" width="80" height="120" /></a>
-  <a href="read-images/images7.png"><img src="read-images/images7.png" width="80" height="120" /></a>
+  <a href="read-images/images2.png"><img src="read-images/images2.png" width="280px" height="507px" /></a>
+  <a href="read-images/images3.png"><img src="read-images/images3.png" width="280px" height="507px" /></a>
+  <a href="read-images/images4.png"><img src="read-images/images4.png" width="280px" height="507px" /></a>
+  <a href="read-images/images5.png"><img src="read-images/images5.png" width="280px" height="507px" /></a>
+  <a href="read-images/images6.png"><img src="read-images/images6.png" width="280px" height="507px" /></a>
+  <a href="read-images/images7.png"><img src="read-images/images7.png" width="280px" height="507px" /></a>
 </div>
 # 🌟 My Focus App: The Comprehensive Technical & User Documentation
 
