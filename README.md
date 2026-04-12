@@ -58,7 +58,7 @@ Welcome to the definitive guide for **My Focus App**, a holistic productivity an
 
 ## 🚀 Executive Vision
 
-**My Focus App** is engineered to be a sanctuary in your pocket. In an era where "Attention is Currency," we aim to provide a zero-distraction environment that merges productivity tools with relaxation suites. The app is built on the philosophy that focus isn't just about "doing more," but about "being more" in the moment.
+**G Apps** is engineered to be a sanctuary in your pocket. In an era where "Attention is Currency," we aim to provide a zero-distraction environment that merges productivity tools with relaxation suites. The app is built on the philosophy that focus isn't just about "doing more," but about "being more" in the moment.
 
 ### Core Objectives:
 - **Consolidation**: Eliminating context-switching by providing Music, Reading, Timing, and Budgeting in one app.
@@ -305,7 +305,7 @@ To prevent accidental data loss, the "Reset All Data" action requires a manual s
 
 ## 🚀 Installation & Build Guide
 
-1.  **Clone**: `git clone <repo-url>`
+1.  **Clone**: `git clone https://github.com/Gongchampou/G-Apps.git`
 2.  **Open**: Import into Android Studio (Ladybug or newer).
 3.  **Sync**: Ensure Gradle Sync completes successfully.
 4.  **Run**: Deploy to a device running Android 8.0 (Oreo) or higher.
@@ -331,7 +331,7 @@ To prevent accidental data loss, the "Reset All Data" action requires a manual s
 ## ❓ Frequently Asked Questions (FAQ)
 
 **Q: Can I add my own books?**
-A: Yes. Place `.docx` or `.htm` files in the assets folder and update `book.json`.
+A: Yes. Place `.docx` or `.htm` ir `.html` files in the assets folder and update `book.json`.
 
 **Q: Why a Foreground Service?**
 A: To ensure the timer isn't killed when you lock your screen, which is critical for focus apps.
