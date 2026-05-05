@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 // LINE 32: 'NavController' is the tool that lets the user jump from one screen to another.
 import androidx.navigation.NavController
+// LINE 33: 'Toast' is a small pop-up message that tells the user information.
+import android.widget.Toast
 // LINE 34: 'Screen' is a list of all the different pages in our app.
 import com.gongchampou.gapps.Screen
 // LINE 36: 'TaskViewModel' is the "Brain" that stores your settings and data.
@@ -44,7 +46,14 @@ import com.gongchampou.gapps.Track
 import com.google.gson.Gson
 // LINE 42: 'TypeToken' helps Gson understand how to turn text into a list of songs.
 import com.google.gson.reflect.TypeToken
-// LINE 44: 'java.io.File' is a tool that lets the app look at files in your phone's memory.
+// LINE 44: 'Dispatchers' and 'launch' are used to run heavy tasks in the background.
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+// LINE 48: 'HttpURLConnection' is used to talk to the internet and get data.
+import java.net.HttpURLConnection
+import java.net.URL
+// LINE 50: 'java.io.File' is a tool that lets the app look at files in your phone's memory.
 import java.io.File
 
 /**
@@ -68,8 +77,11 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
     val uriHandler = LocalUriHandler.current
     // LINE 64: This tool helps find where the app stores its music files.
     val context = LocalContext.current
+
+    // LINE 66: This tool lets the app run tasks in the background without freezing the screen.
+    val scope = rememberCoroutineScope()
     
-    // LINE 67: This keeps a count of how many songs you've downloaded so far.
+    // LINE 68: This keeps a count of how many songs you've downloaded so far.
     var downloadCount by remember { mutableIntStateOf(0) }
     
     // LINE 70: This helper function makes sure the file names match (e.g., 'track_1.mp3').
@@ -104,8 +116,51 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
     LaunchedEffect(Unit) {
         updateDownloadCount()
     }
+
+    /**
+     * LINE 103: This function checks GitHub to see if there is a new version of the app.
+     * It looks for a "tag" like v1.0.1 and compares it to your current version (1.0.0).
+     */
+    fun checkForUpdates() {
+        scope.launch(Dispatchers.IO) { // Run this on a background thread so the app doesn't lag.
+            try {
+                // The URL for the latest release information on GitHub.
+                val url = URL("https://api.github.com/repos/Gongchampou/an-focus/releases/latest")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connect()
+
+                if (connection.responseCode == 200) {
+                    // Read the text from GitHub.
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    // Turn the text into a format the app understands.
+                    val latestRelease = Gson().fromJson(response, Map::class.java)
+                    val tagName = latestRelease["tag_name"] as String
+                    // Remove the 'v' (e.g., 'v1.0.1' becomes '1.0.1').
+                    val latestVersion = tagName.removePrefix("v")
+
+                    withContext(Dispatchers.Main) { // Switch back to the UI thread to show messages.
+                        if (latestVersion > "1.0.0") {
+                            Toast.makeText(context, "New Update Found: $tagName", Toast.LENGTH_LONG).show()
+                            uriHandler.openUri("https://github.com/Gongchampou/an-focus/releases/latest")
+                        } else {
+                            Toast.makeText(context, "Your app is already up to date!", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Error checking updates. Please try again later.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "No Internet connection.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
     
-    // LINE 103: Column puts all the settings in a vertical list from top to bottom.
+    // LINE 144: Column puts all the settings in a vertical list from top to bottom.
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -250,23 +305,41 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
 
         Spacer(modifier = Modifier.height(12.dp))
         Text("About", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-        Text("This app was created by Gongchampou Kamei.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+        Text("Developer: Gongchampou Kamei.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
         Spacer(modifier = Modifier.height(10.dp))
-        Text("G Apps Version: 1.0.0", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+        Text("G Apps Version: 1.0.1", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // LINE 212: THE GITHUB BUTTON
-        // This opens the project code on GitHub so anyone can see it.
-        Button(
-            onClick = {
-                uriHandler.openUri("https://github.com/Gongchampou/an-focus.git")
-            },
-            modifier = Modifier.fillMaxWidth().height(44.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
-            shape = RoundedCornerShape(8.dp)
+        // LINE 212: THE GRID BOX FOR BUTTONS
+        // We use a Row to put two buttons side-by-side.
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp) // This adds a small gap between the two boxes.
         ) {
-            Text("View on GitHub", color = Color.White, fontWeight = FontWeight.Bold)
+            // BOX 1: THE GITHUB BUTTON
+            Button(
+                onClick = {
+                    uriHandler.openUri("https://github.com/Gongchampou/an-focus.git")
+                },
+                modifier = Modifier.weight(1f).height(44.dp), // .weight(1f) makes it take half the space.
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("View GitHub", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            // BOX 2: THE UPDATE CHECK BUTTON
+            Button(
+                onClick = {
+                    checkForUpdates()
+                },
+                modifier = Modifier.weight(1f).height(44.dp), // .weight(1f) makes it take the other half.
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Check Update", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
         }
     }
 }
